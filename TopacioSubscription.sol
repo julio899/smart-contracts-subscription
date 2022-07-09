@@ -5,6 +5,7 @@ pragma solidity >=0.8.0;
 /**
  * @title TopacioSubscription
  * @dev Subscriptions Topacio - Julio Vinachi
+ * @url https://github.com/topaciotrade/smart-contracts-subscription/blob/main/TopacioSubscription.sol
  */
 contract TopacioSubscription {
 
