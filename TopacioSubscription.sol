@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity >=0.8.0;
+pragma solidity >=0.8.7;
 
-/**
+/*
  * @title TopacioSubscription
  * @dev Subscriptions Topacio - Julio Vinachi
  * @url https://github.com/topaciotrade/smart-contracts-subscription/blob/main/TopacioSubscription.sol
@@ -139,9 +139,10 @@ contract TopacioSubscription {
        return controlTotalSubscriptors;
     }
 
-    // function searchSubscriber(address _addressSubscriber)  external view returns (address){
-    //    return (subscriptions[_addressSubscriber]);
-    // }
+    function searchSubscriber(address _addressSubscriber)  external view returns (bool){
+       Subscription storage consult = subscriptions[_addressSubscriber];
+       return (consult.nro > 0);
+    }
 
     function getStatusSubscriptionsRegister()  external view returns (bool){
        return newSubscriptionEnable;
