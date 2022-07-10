@@ -28,12 +28,13 @@ contract TopacioSubscription {
         uint nro;
         uint endsubscription; // final date subscription
     }
-
+    address[] public addressSubscriptors;
     mapping(address => Subscription) public subscriptions;
 
     address private owner;
 
     event Received(address, uint);
+    event NewRegisterSubscriptor(address Subscriptior, uint amount,uint start,uint end);
     receive() external payable {
         emit Received(msg.sender, msg.value);
     }
@@ -90,6 +91,7 @@ contract TopacioSubscription {
             subscriptions[msg.sender].nro = controlNewSubscriptor;
             subscriptions[msg.sender].controldate = block.timestamp;
             subscriptions[msg.sender].endsubscription = block.timestamp + 31 days;
+            addressSubscriptors.push(msg.sender);
         }else{
             // si ya esta activo y tiene subscription
             subscriptions[msg.sender].endsubscription += 31 days;
@@ -103,15 +105,24 @@ contract TopacioSubscription {
         if ( maxNewSubscriptors == 0 ) {
             newSubscriptionEnable = false;
         }
+        
+        emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
+    
+    }
+
+    function getAllSubscriptions() external view returns (address[] memory) {
+        return addressSubscriptors;
     }
 
     function getDateEndSubscription()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
+       require(consult.active,"no has subscription");
        return consult.endsubscription;
     }
 
     function getDateInitialSubscription()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
+       require(consult.active,"no has subscription");
        return consult.controldate;
     }
 
@@ -119,14 +130,21 @@ contract TopacioSubscription {
        Subscription storage consult = subscriptions[msg.sender];
        return (consult.active);
     }
+    function getDaysSubscription()  external view returns (uint){
+       Subscription storage consult = subscriptions[msg.sender];
+       require(consult.active,"no has subscription");
+       return (consult.endsubscription - block.timestamp) / 1 days;
+    }
 
     function getHistoryAmountSubscriptions()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
+       require(consult.active,"no has subscription");
        return (consult.amountSubscription);
     }
 
     function getSubscriptorNro()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
+       require(consult.active,"no has subscription");
        return (consult.nro);
     }
 
