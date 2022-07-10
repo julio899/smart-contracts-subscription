@@ -1,0 +1,22 @@
+{
+  "name": "nodo-subscriptions",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "compile": "node ./contracts/js/compile.js",
+    "deploy": "node ./contracts/js/deploy.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "solc": "^0.8.15",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "web3": "^1.7.4"
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}
