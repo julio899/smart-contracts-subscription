@@ -26,6 +26,7 @@ contract TopacioSubscription {
         address delegate; // person delegated to
         uint amountSubscription;
         uint nro;
+        uint tikets;
         uint endsubscription; // final date subscription
     }
     address[] public addressSubscriptors;
@@ -48,6 +49,12 @@ contract TopacioSubscription {
 
     modifier onlyOwner(){
         require(msg.sender == owner);
+        _;
+    }
+
+    modifier onlySubscriber(){
+       Subscription storage consult = subscriptions[msg.sender];
+       require(consult.delegate == msg.sender,"you are not of this subscriptior");
         _;
     }
 
@@ -76,7 +83,7 @@ contract TopacioSubscription {
 
         require(msg.value == costoSubscription, "Incorect ammount");
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
-        require ( newSubscriptionEnable == true,"no enable for new subscription" );
+        require ( newSubscriptionEnable == true,"No enable for new subscription" );
 
         payable(this).transfer(msg.value);
         
@@ -101,6 +108,7 @@ contract TopacioSubscription {
         subscriptions[msg.sender].amountSubscription += msg.value;
         subscriptions[msg.sender].active = true; 
         subscriptions[msg.sender].delegate = msg.sender;
+        subscriptions[msg.sender].tikets+=1;
         
         if ( maxNewSubscriptors == 0 ) {
             newSubscriptionEnable = false;
@@ -108,6 +116,33 @@ contract TopacioSubscription {
         
         emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
     
+    }
+
+    function getTickets() onlySubscriber external view returns (uint){
+       Subscription storage consult = subscriptions[msg.sender];
+       return consult.tikets;
+    }
+
+    function spendTickets(uint _countTicket) onlySubscriber external returns (bool){
+       Subscription storage consult = subscriptions[msg.sender];
+       require (consult.tikets>=_countTicket,"you not have enough Tickets");
+       require (consult.tikets!=0 && _countTicket!=0,"Tickets cannot be zero");
+       subscriptions[msg.sender].tikets = consult.tikets-_countTicket;
+       return true;
+    }
+
+    function assignTickets(uint _countTicket, address _addressSubscriber) onlyOwner external {
+       Subscription storage consult = subscriptions[_addressSubscriber];
+       require (consult.delegate == _addressSubscriber,"Subscriber no exist");
+       require (_countTicket>0,"Tickets cannot be zero");
+       subscriptions[_addressSubscriber].tikets += _countTicket;
+    }
+
+    function burnTickets(uint _countTicket, address _addressSubscriber) onlyOwner external {
+       Subscription storage consult = subscriptions[_addressSubscriber];
+       require (consult.tikets>=_countTicket,"you not have enough Tickets");
+       require (consult.tikets!=0 && _countTicket!=0,"Tickets cannot be zero");
+       consult.tikets = consult.tikets-_countTicket;
     }
 
     function getAllSubscriptions() external view returns (address[] memory) {
@@ -130,6 +165,7 @@ contract TopacioSubscription {
        Subscription storage consult = subscriptions[msg.sender];
        return (consult.active);
     }
+
     function getDaysSubscription()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
        require(consult.active,"no has subscription");
@@ -197,6 +233,7 @@ contract TopacioSubscription {
     }
 
     function toStakingInfrastructure() onlyOwner public payable{
+       require(address(this).balance > 0,"contract not have enough balance");
        stakingInfrastructure.transfer(address(this).balance);
     }
 
