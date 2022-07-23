@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0
-
-pragma solidity >=0.8.7;
-
+pragma solidity >=0.8.0;
 /*
  * @title TopacioSubscription
  * @dev Subscriptions Topacio - Julio Vinachi
  * @url https://github.com/topaciotrade/smart-contracts-subscription/blob/main/TopacioSubscription.sol
  */
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract TopacioSubscription {
 
     uint lastSubscription;
     uint costoSubscription = 100000000000000000;  
     bool newSubscriptionEnable = false;
+    bool isActiveCustomToken = false;
     uint maxNewSubscriptors = 50;  
     uint controlTotalSubscriptors = 0;
-    uint controlNewSubscriptor = 0;  
+    uint controlNewSubscriptor = 0;
+    IERC20 public token;
 
     address payable public stakingInfrastructure = payable(0x84c64c039e3697F2C997887735e9d488DC17AA40);
     
-
-
     struct Subscription {
         uint controldate; // initial start date
         bool active;  // if true, active
@@ -74,18 +74,58 @@ contract TopacioSubscription {
         owner = newOwner;
     }
 
+    /**
+     * Active Pay Only for token Custom
+     */
+    function activePayByToken(address _token,uint _initialCost) onlyOwner public 
+    {
+        isActiveCustomToken = true;
+        costoSubscription = _initialCost;
+        token = IERC20(_token);
+    }
+
+    function InactivePayByToken() onlyOwner public returns (bool)
+    {
+        isActiveCustomToken = false;
+        return true;
+    }
+
+    function getIsActivePayByToken() external view returns (bool) 
+    {
+        return isActiveCustomToken;
+    }
+
+    function getBalanceInToken() public view returns (uint256)
+    {        
+        require(isActiveCustomToken == true, "Token is not active");
+        return token.balanceOf(address(msg.sender));
+    }
+
 
     function getDateLastSubscription() external view returns (uint){
         return lastSubscription;
     }
 
     function comprar() public payable {
+        
 
-        require(msg.value == costoSubscription, "Incorect ammount");
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
+        require(msg.value == costoSubscription, "Incorect amount");
+        
+        if(isActiveCustomToken==true){
+            
+            require ( token.balanceOf(address(msg.sender)) >= costoSubscription,"you need balance in topacio token" );
+            
+            uint256 allowance = token.allowance(msg.sender, address(this));
+            require(allowance >= costoSubscription, "check the token allowance");
+                  
+            token.transferFrom(msg.sender,address(this), costoSubscription);
+            
+        }else{
+            payable(this).transfer(costoSubscription);
+        }
 
-        payable(this).transfer(msg.value);
         
         maxNewSubscriptors = maxNewSubscriptors-1;
         lastSubscription = block.timestamp;
@@ -116,6 +156,10 @@ contract TopacioSubscription {
         
         emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
     
+    }
+ 
+    function tokensBalance()external view returns(uint256){
+        return token.balanceOf(address(this));
     }
 
     function getTickets() onlySubscriber external view returns (uint){
@@ -202,16 +246,20 @@ contract TopacioSubscription {
        return newSubscriptionEnable;
     }
 
-    function getSubscriptoresDisponibles()  external view returns (uint){
+    function getSubscripcionesDisponibles()  external view returns (uint){
        return maxNewSubscriptors;
     }
 
-    function getBalanceSuscriptions()  external view returns (uint256){
+    function getBalanceSuscriptions() onlyOwner external view returns (uint256){
        return address(this).balance;
     }
 
-    function getStakingBalance()  external view returns (uint256){
+    function getStakingBalance() onlyOwner external view returns (uint256){
        return address(stakingInfrastructure).balance;
+    }
+
+    function getCosto() external view returns (uint256){
+       return costoSubscription;
     }
 
     function updateCostSubscription( uint _new_cost ) onlyOwner public{
@@ -233,8 +281,15 @@ contract TopacioSubscription {
     }
 
     function toStakingInfrastructure() onlyOwner public payable{
-       require(address(this).balance > 0,"contract not have enough balance");
-       stakingInfrastructure.transfer(address(this).balance);
+       if(isActiveCustomToken==true) {
+        uint cantidad = token.balanceOf(address(this));
+        require( cantidad > 0,"contract not have enough balance");
+        token.transfer(address(stakingInfrastructure),cantidad);
+       }else{
+        require(address(this).balance > 0,"contract not have enough balance");
+        stakingInfrastructure.transfer(address(this).balance);
+       }
+
     }
 
     // important to receive ETH
