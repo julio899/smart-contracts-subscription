@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract TopacioSubscription {
 
     uint lastSubscription;
-    uint customSubscription = 100000000000000000;  
+    uint priceOfSubscription = 100000000000000000;  
     bool newSubscriptionEnable = false;
     bool isActiveCustomToken = false;
     uint maxNewSubscriptors = 50;  
@@ -80,7 +80,7 @@ contract TopacioSubscription {
     function activePayByToken(address _token,uint _initialCost) onlyOwner public 
     {
         isActiveCustomToken = true;
-        customSubscription = _initialCost;
+        priceOfSubscription = _initialCost;
         token = IERC20(_token);
     }
 
@@ -111,17 +111,18 @@ contract TopacioSubscription {
 
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
-        require(msg.value == customSubscription, "Incorect amount");
+        require(msg.value == priceOfSubscription, "Incorect amount");
         
         if(isActiveCustomToken==true){
-            require ( token.balanceOf(address(msg.sender)) >= customSubscription,"you need balance in topacio token" );
-            
+
+            require ( token.balanceOf(address(msg.sender)) >= priceOfSubscription,"you need balance in topacio token" );
             uint256 allowance = token.allowance(msg.sender, address(this));
-            require(allowance >= customSubscription, "check the token allowance");
+            require(allowance >= priceOfSubscription, "check the token allowance");
                   
-            token.transferFrom(msg.sender,address(this), customSubscription);
+            token.transferFrom(msg.sender,address(this), priceOfSubscription);
+
         }else{
-            payable(this).transfer(customSubscription);
+            payable(this).transfer(priceOfSubscription);
         }
 
         
@@ -257,11 +258,11 @@ contract TopacioSubscription {
     }
 
     function getCosto() external view returns (uint256){
-       return customSubscription;
+       return priceOfSubscription;
     }
 
     function updateCostSubscription( uint _new_cost ) onlyOwner public{
-        customSubscription = _new_cost;
+        priceOfSubscription = _new_cost;
     }
 
     function startingSubscriptions( uint _max_subscriptiors ) onlyOwner public{
