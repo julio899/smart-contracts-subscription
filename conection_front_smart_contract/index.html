@@ -51,6 +51,7 @@
     let costSubscriptionDecimal;
     let SubscriptionBalanceInTokensDecimal;
     let DaysSubscription = 0;
+    let lastBlock = 0;
     let inputCosto = document.querySelector('#inputCosto');
     let lblWallet = document.querySelector('#wallet-label');
     let lblBNBwei = document.querySelector('#bnb-balance');
@@ -75,9 +76,9 @@
 
     // defaul gas price 20000000000 in ganash
     // ENTORNO LOCAL
-    let web3 = new Web3('http://127.0.0.1:7545');
-    const addressContractSubscriptionsTopacio = ('0x84D128c9DeAc6cfD2a15f8c5AF4b5eb25c8aA90C');
-    const AddressContractTopacioToken = '0x397Fc35C7e017F8676f02dC48fb49d11Fd79A38E';
+    let web3 = new Web3('ws://127.0.0.1:7545');
+    const addressContractSubscriptionsTopacio = ('0x1BEC873Daaa6f31D1340e00c9EA858a765D27fc4');
+    const AddressContractTopacioToken = '0x487E5108242aC0B22D933C9879Fc668C6e9d8e98';
     const url_path_json_abi_subscriptions = './abis/abi-topacio-subscriptions-local.json';
     const url_path_json_abi_topacio_token = './abis/abi-topacio-token-local.json';
 
@@ -110,13 +111,6 @@
 		  	- BSC Production: 0x38 
   	*/
         console.log('chainChanged', chainId)
-        updateBalance();
-    });
-
-    ethereum.on('accountsChanged', function(acc) {
-        // Time to reload your interface with accounts[0]!
-        console.log('accountsChanged', acc)
-        signerAddress = acc[0];
         updateBalance();
     });
 
@@ -163,6 +157,7 @@
     }
 
     async function start() {
+    	lastBlock = await web3.eth.getBlockNumber();
 
         accounts = await web3.eth.getAccounts();
 
@@ -196,8 +191,31 @@
 
         provider.on("block", (blockNumber) => {
             console.log({ blockNumber });
+            lastBlock = blockNumber;
             updateBalance();
         });
+
+        subscriptionContract.events.NewRegisterSubscriptor({fromBlock: lastBlock, toBlock: 'latest'}, (error, result) => {
+			console.log('NewRegisterSubscriptor',{error, result});
+
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            })
+
+            Toast.fire({
+                icon: 'success',
+                title: `Excelente se ha registrado una nueva Subscription`
+            });
+            
+		});
 
         /*
         	// This filter could also be generated with the Contract or
@@ -246,7 +264,7 @@
                 costSubscription = costo;
                 costSubscriptionDecimal = web3.utils.fromWei(costSubscription, 'ether');
                 console.log({ costo, costSubscriptionDecimal })
-                lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether');
+                lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether') + ' TOPACIO';
             });
 
         }
@@ -441,7 +459,7 @@
             costSubscription = costo;
             costSubscriptionDecimal = web3.utils.fromWei(costSubscription, 'ether');
             console.log({ costo, costSubscriptionDecimal })
-            lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether');
+            lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether') + ' TOPACIO';
         });
 
         tokenContract.methods.balanceOf(addressContractSubscriptionsTopacio).call().then((balanceTokens) => {
@@ -498,8 +516,14 @@
             subscriptionContract.methods.getDaysSubscription().call({ from: signerAddress }).then((resp) => {
                 DaysSubscription = resp;
                 lblDaysSubscription.innerHTML = DaysSubscription;
+            }).catch((err) => {
+
+                lblDaysSubscription.innerHTML = 0;
+            	console.log(err)
             });
 
+        }).catch((e)=>{
+        	console.log({e})
         });
 
 
