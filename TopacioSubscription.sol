@@ -168,7 +168,7 @@ contract TopacioSubscription {
     
     }
 
-    function comprarByToken() public {        
+    function comprarByToken() public payable {        
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
         require ( isActiveCustomToken == true,"No enable by token" );
