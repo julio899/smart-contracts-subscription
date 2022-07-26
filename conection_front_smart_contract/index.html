@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartContract Subscription</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.4/web3.min.js" integrity="sha512-oMd9Re3VgJcXuZJn9DN6X7S7JUc7xLYZ2UyZ85Mm/xzaW3lwBr4fV2zjuu/n5jY/Of/2JOx35CTa6zvQNxb31Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.6.9/ethers.umd.min.js" integrity="sha512-Veaz5IU2iRpa0BBrJlJeRgfJ7OAHWtVJZTXvgdH7s3ffsLUChllMCqC0Bb+eeRxGlrZ06iYIE/R3KsciCrgv3A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="shortcut icon" href="http://localhost/conection_front_smart_contract/topacio_48X48.svg" />
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Foundation&family=Montserrat:wght@100;400&family=Roboto:wght@100&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    Wallet :<label class="wallet-label" id="wallet-label"></label><br>
+    Personal BNB Balance wei: <label class="bnb-balance" id="bnb-balance"></label><br>
+    <p class="balances">
+        Personal BNB Balance : <label class="bnb-balance-decimal" id="bnb-balance-decimal"></label>
+    </p>
+    <p class="balances">
+        Personal TOPACIO Balance : <label class="topacio-balance-decimal" id="topacio-balance-decimal"></label>
+    </p>
+    <div class="bg-azul">
+        TOPACIO Cost Subscription : <label class="topacio-cost-subscription-decimal" id="topacio-cost-subscription-decimal"></label>
+    </div>
+    <br>
+    TOPACIO Subscription Tokens Balance: <label class="topacio-subscription-tokens-balance-decimal" id="topacio-subscription-tokens-balance-decimal"></label><br>
+    TOPACIO Subscription Balance SmartContract: <label class="topacio-subscription-balance-decimal" id="topacio-subscription-balance-decimal"></label><br>
+    Subscripciones Disponibles: <label class="subscripciones-disponibles" id="subscripciones-disponibles"></label><br>
+    <hr>
+    Subscription isSubscriber: <label class="topacio-subscription-is-subscriber" id="topacio-subscription-is-subscriber"></label><br>
+    <hr>
+    days subscription: <label class="topacio-subscription-days" id="topacio-subscription-days"></label><br>
+    Tickets: <label class="tickets-subscriber" id="tickets-subscriber"></label><br>
+    <button type="button" onclick="approvebutton()">approve</button>
+    <button type="button" onclick="addTokenToWallet()">add Token to Metamask</button>
+    <button type="button" onclick="comprar()">comprar</button>
+    <hr>
+    <input type="number" min="1" placeholder="in Decimal (1.5)" id="inputCosto">
+    <button type="button" onclick="updateCostSubscription()">update Cost</button>
+    <script>
+    let tokenContract;
+    let subscriptionContract;
+    let subscriptionContractW3;
+    let userTokenBalance;
+    let accounts;
+    let costSubscription;
+    let costSubscriptionDecimal;
+    let SubscriptionBalanceInTokensDecimal;
+    let DaysSubscription = 0;
+    let inputCosto = document.querySelector('#inputCosto');
+    let lblWallet = document.querySelector('#wallet-label');
+    let lblBNBwei = document.querySelector('#bnb-balance');
+    let lblBNBdecimal = document.querySelector('#bnb-balance-decimal')
+    let lblTopaciodecimal = document.querySelector('#topacio-balance-decimal')
+    let lblTopacioCostSubscriptiondecimal = document.querySelector('#topacio-cost-subscription-decimal')
+    let lblTopacioSubscriptionTokenBalaceDecimal = document.querySelector('#topacio-subscription-tokens-balance-decimal')
+    let lblTopacioIsSubscripber = document.querySelector('#topacio-subscription-is-subscriber')
+    let lblTicketsSubscriber = document.querySelector('#tickets-subscriber')
+    let lblSubscripcionesDisponibles = document.querySelector('#subscripciones-disponibles')
+    let lblSubscripcionesBalance = document.querySelector('#topacio-subscription-balance-decimal')
+    let lblDaysSubscription = document.querySelector('#topacio-subscription-days')
+
+
+    // ENTORNO PRODUCCION
+    // const web3 = new Web3('https://bsc-dataseed1.binance.org:443');
+    // const addressContractSubscriptionsTopacio = ('0xb50d16EC3170a64Be58292dd2d8B1d36273A8341');
+    // const AddressContractTopacioToken = '0xA93B1381C14a337f0829655768F73dFf8dfb840B';
+    // const url_path_json_abi_subscriptions = './abis/abi-topacio-subscriptions.json';
+    // const url_path_json_abi_topacio_token = './abis/abi-topacio-token.json';
+
+
+    // defaul gas price 20000000000 in ganash
+    // ENTORNO LOCAL
+    let web3 = new Web3('http://127.0.0.1:7545');
+    const addressContractSubscriptionsTopacio = ('0x84D128c9DeAc6cfD2a15f8c5AF4b5eb25c8aA90C');
+    const AddressContractTopacioToken = '0x397Fc35C7e017F8676f02dC48fb49d11Fd79A38E';
+    const url_path_json_abi_subscriptions = './abis/abi-topacio-subscriptions-local.json';
+    const url_path_json_abi_topacio_token = './abis/abi-topacio-token-local.json';
+
+
+
+    if (typeof window.ethereum !== 'undefined') {
+        // ethereum.request({ method: 'eth_requestAccounts' });
+        start();
+
+    } else {
+        alert('Please install metamask')
+    }
+
+    // Instead of this:
+    ethereum.on('chainIdChanged', (chainId) => {
+    /* 
+	  	handle the chainId  
+		  	- testnet BSC :0x61 
+		  	- BSC Production: 0x38 
+	*/
+        console.log('chainIdChanged', chainId)
+        updateBalance();
+    });
+
+    // Do this:
+    ethereum.on('chainChanged', (chainId) => {
+    /* 
+	  	handle the chainId  
+		  	- testnet BSC :0x61 
+		  	- BSC Production: 0x38 
+  	*/
+        console.log('chainChanged', chainId)
+        updateBalance();
+    });
+
+    ethereum.on('accountsChanged', function(acc) {
+        // Time to reload your interface with accounts[0]!
+        console.log('accountsChanged', acc)
+        signerAddress = acc[0];
+        updateBalance();
+    });
+
+    // request - send - sendAsync - _events
+
+    // const accounts = web3.eth.accounts;
+    // var Web3 = require('web3');
+
+
+
+    //const spenderAdr = ('0xSpenderAddress');
+    //const amount = ('AmountTokensNumber')
+
+
+    // subscriptionContractW3 = await getContract( url_path_json_abi_subscriptions, addressContractSubscriptionsTopacio);
+    // console.log({subscriptionContractW3});
+
+    async function getContract(url_path_json_abi, contractAddress) {
+        const response = await fetch(url_path_json_abi);
+        const data = await response.json();
+        const netId = await web3.eth.net.getId();
+
+        // contract = await new web3.eth.Contract({
+        // 	data,
+        // 	contractAddress
+        // });
+        var contract = new web3.eth.Contract(
+            data, contractAddress, {
+                from: signerAddress, // default from address
+                gasPrice: '25000000' //'20000000000' // default gas price in wei, 20 gwei in this case
+            });
+
+        /*
+        		https://web3js.readthedocs.io/en/v1.2.11/web3-eth-contract.html
+
+        	    web3.eth.sendTransaction()
+        	    web3.eth.call()
+        	    new web3.eth.Contract() -> myContract.methods.myMethod().call()
+        	    new web3.eth.Contract() -> myContract.methods.myMethod().send()
+
+        */
+
+        return contract;
+    }
+
+    async function start() {
+
+        accounts = await web3.eth.getAccounts();
+
+        if (accounts.length == 0) {
+            await getAccount();
+        }
+        // accounts = await ethereum.request({ method: 'eth_accounts' });
+        let isConnected = ethereum.isConnected();
+
+
+        // let balance = ethereum.request({ method:'getBalanceOf' })
+        // let balance = window.ethereum.metaMask.getBalanceOf();
+
+        //get provider
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        // provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:7545');
+
+        //get signer (I usually use signer because when you connect to contract via signer,
+        //you can write to it too, but via provider, you can only read data from contract)
+        signer = provider.getSigner();
+        //Get connected wallet address
+        signerAddress = await signer.getAddress();
+
+        lblWallet.innerHTML = signerAddress;
+
+
+        subscriptionContract = await getContract(url_path_json_abi_subscriptions, addressContractSubscriptionsTopacio)
+        tokenContract = await getContract(url_path_json_abi_topacio_token, AddressContractTopacioToken)
+        // getAccountBalance();
+        updateBalance();
+
+        provider.on("block", (blockNumber) => {
+            console.log({ blockNumber });
+            updateBalance();
+        });
+
+        /*
+        	// This filter could also be generated with the Contract or
+        	// Interface API. If address is not specified, any address
+        	// matches and if topics is not specified, any log matches
+        	filter = {
+        	    address: "dai.tokens.ethers.eth",
+        	    topics: [
+        	        utils.id("Transfer(address,address,uint256)")
+        	    ]
+        	}
+        	provider.on(filter, (log, event) => {
+        	    // Emitted whenever a DAI token transfer occurs
+        	})
+        */
+
+    }
+    async function updateCostSubscription() {
+
+        let inWei = web3.utils.toWei(inputCosto.value);
+        const respUpdateCost = await subscriptionContract.methods.updateCostSubscription(inWei).send();
+
+
+        if (respUpdateCost.status == true) {
+
+
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            })
+
+            Toast.fire({
+                icon: 'success',
+                title: `Update successfully to (${inputCosto.value}) in ${(respUpdateCost.transactionHash).substr(0,5)}.........${(respUpdateCost.transactionHash).substr(-4)}`
+            })
+
+            inputCosto.value = null;
+            subscriptionContract.methods.getCosto().call().then((costo) => {
+                costSubscription = costo;
+                costSubscriptionDecimal = web3.utils.fromWei(costSubscription, 'ether');
+                console.log({ costo, costSubscriptionDecimal })
+                lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether');
+            });
+
+        }
+
+        console.log({ respUpdateCost })
+
+
+    }
+    async function comprar() {
+        let responseComprar;
+        // actualizando cuentas antes de enviar
+        accounts = await web3.eth.getAccounts();
+
+        let activeByToken = await subscriptionContract.methods.getIsActivePayByToken().call();
+
+        if (accounts.length == 0) {
+            await getAccount();
+        }
+
+        let respAllowe = await tokenContract.methods.approve(addressContractSubscriptionsTopacio, costSubscription).send({
+            from: signerAddress,
+            // gas:3000000
+        });
+
+
+        if (activeByToken) {
+            responseComprar = await subscriptionContract.methods.comprarByToken().send({
+                from: signerAddress,
+                // to:addressContractSubscriptionsTopacio,
+                // value: costSubscription,
+                gas: 3000000
+            });
+        } else {
+            responseComprar = await subscriptionContract.methods.comprar().send({
+                from: signerAddress,
+                to: addressContractSubscriptionsTopacio,
+                value: costSubscription,
+                gas: 3000000
+            });
+        }
+
+        await updateBalance();
+        console.log('*** comprar ***', { responseComprar })
+        //({respAllowe,responseComprar});
+    }
+    async function approvebutton() {
+        // (Contract, spenderAdr)
+        // Contract.methods.approve(spenderAddr, amount).send({
+        //     from: ownerAddr
+        // })
+
+        //   		try {
+        //   const transactionHash = await ethereum.request({
+        //     method: 'eth_sendTransaction',
+        //     params: [
+        //       {
+        //         to: _to,
+        //         'from': _from,
+        //         value,
+        //         // And so on...
+        //       },
+        //     ],
+        //   });
+        //   // Handle the result
+        //   console.log(transactionHash);
+        // } catch (error) {
+        //   console.error(error);
+        // }
+
+        //ethers.utils.parseEther("0.01")
+
+        // await tokenContract.approve(addressContractSubscriptionsTopacio, costSubscription ).then(async (resp)=>{
+        // 	console.log(resp);
+        // });
+
+        ////////////////////
+        // method approve
+        ////////////////////
+        await tokenContract.methods.approve(addressContractSubscriptionsTopacio, costSubscription).then(async (resp) => {
+            console.log(resp);
+        });
+
+        // VENTA O COBRO DIRECTO
+        // let respTransfer = await tokenContract.methods.transfer(addressContractSubscriptionsTopacio, costSubscription).send();
+
+
+
+        // const recipient = "SOME_ADDRESS_HERE";
+        // const estimation = await subscriptionContract.estimateGas.transfer(recipient, 100);
+
+
+        let feeData = await provider.getFeeData();
+        //let feeFormat = await ethers.utils.formatUnits(feeData.maxFeePerGas, "gwei");
+
+        console.log({
+            feeDataWei: feeData.gasPrice.toString(),
+            feeData
+        })
+
+        // Signing a message
+        //let SigningMessage = await ethers.walletMnemonic.signMessage("Hello World")
+        // '0x14280e5885a19f60e536de50097e96e3738c7acae4e9e62d67272d794b8127d31c03d9cd59781d4ee31fb4e1b893bd9b020ec67dfa65cfb51e2bdadbb1de26d91c'
+
+        let tx = {
+            to: addressContractSubscriptionsTopacio,
+            value: costSubscription
+        }
+
+        console.log({ ethers, tx })
+
+
+        // ************ DETALLE
+        // subscriptionContract.comprar().then(console.log)
+
+
+        // https://docs.ethers.io/v5/api/signer/#Signer-sendTransaction
+        // https://docs.metamask.io/guide/sending-transactions.html#example
+
+
+
+        // const txObject = {
+        //     nonce:    web3.utils.toHex(txCount),
+        //     to:       accounts[0] ,
+        //     value:    costSubscription, //web3.utils.toHex(web3.utils.toWei('0.1', 'ether')),
+        //     gasLimit: web3.utils.toHex(21000),
+        //     gasPrice: web3.utils.toHex(web3.utils.toWei('10', 'gwei'))
+        //  }
+        /*
+        web3.eth.getTransactionCount(account1, (err, txCount) => {
+          const txObject = {
+            nonce:    web3.utils.toHex(txCount),
+            to:       account2,
+            value:    web3.utils.toHex(web3.utils.toWei('0.1', 'ether')),
+            gasLimit: web3.utils.toHex(21000),
+            gasPrice: web3.utils.toHex(web3.utils.toWei('10', 'gwei'))
+          }
+        })
+        */
+
+        /*
+        	 ethereum
+            .request({
+              method: 'eth_sendTransaction',
+              params: [
+                {
+                  from: accounts[0],
+                  to: '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
+                  value: '0x29a2241af62c0000',
+                  gasPrice: '0x09184e72a000',
+                  gas: '0x2710',
+                },
+              ],
+            })
+            .then((txHash) => console.log(txHash))
+            .catch((error) => console.error)
+        */
+
+
+        console.log('approvebutton')
+    }
+
+    function resetValues() {
+        lblTicketsSubscriber.innerHTML = null;
+        lblTopacioIsSubscripber.innerHTML = null;
+        lblDaysSubscription.innerHTML = null;
+    }
+
+    async function updateBalance() {
+        accounts = await web3.eth.getAccounts();
+
+        if (accounts.length == 0) {
+            await getAccount();
+        }
+
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        //get signer (I usually use signer because when you connect to contract via signer,
+        //you can write to it too, but via provider, you can only read data from contract)
+        signer = provider.getSigner();
+        //Get connected wallet address
+        signer.getAddress().then((sAddess) => {
+            signerAddress = sAddess;
+            lblWallet.innerHTML = signerAddress;
+        });
+
+
+
+        subscriptionContract = await getContract(url_path_json_abi_subscriptions, addressContractSubscriptionsTopacio);
+        tokenContract = await getContract(url_path_json_abi_topacio_token, AddressContractTopacioToken);
+
+
+        subscriptionContract.methods.getCosto().call().then((costo) => {
+            costSubscription = costo;
+            costSubscriptionDecimal = web3.utils.fromWei(costSubscription, 'ether');
+            console.log({ costo, costSubscriptionDecimal })
+            lblTopacioCostSubscriptiondecimal.innerHTML = web3.utils.fromWei(costSubscription, 'ether');
+        });
+
+        tokenContract.methods.balanceOf(addressContractSubscriptionsTopacio).call().then((balanceTokens) => {
+            SubscriptionBalanceInTokensDecimal = web3.utils.fromWei(balanceTokens, 'ether');
+            lblTopacioSubscriptionTokenBalaceDecimal.innerHTML = SubscriptionBalanceInTokensDecimal;
+        });
+
+
+
+        let balanceContract = await web3.eth.getBalance(addressContractSubscriptionsTopacio);
+        let personalBalance = await web3.eth.getBalance(signerAddress);
+
+
+        tokenContract.methods.balanceOf(signerAddress).call().then((PersonalBalanceInTokens) => {
+            lblTopaciodecimal.innerHTML = web3.utils.fromWei(PersonalBalanceInTokens, 'ether');
+        });
+
+
+
+        lblBNBwei.innerHTML = personalBalance;
+        lblBNBdecimal.innerHTML = web3.utils.fromWei(personalBalance, 'ether');
+        lblSubscripcionesBalance.innerHTML = web3.utils.fromWei(balanceContract, 'ether');
+
+
+        subscriptionContract.methods.getSubscripcionesDisponibles().call().then((resp) => {
+            lblSubscripcionesDisponibles.innerHTML = resp;
+        });
+
+
+        const accountsMayusculas = accounts.flatMap(acc => acc.toUpperCase());
+        const signerAddressMayusculas = signerAddress.toUpperCase()
+
+        if (!accountsMayusculas.includes(signerAddressMayusculas)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error address no included in blockchain',
+                text: 'Error no detect in blockchain el signerAddress:',
+                footer: signerAddress
+            })
+            resetValues();
+            return;
+        }
+
+
+        subscriptionContract.methods.getTickets().call({ from: signerAddress }).then((resp) => {
+            console.log('getTickets', signerAddress, { resp })
+            lblTicketsSubscriber.innerHTML = resp;
+        });
+
+        subscriptionContract.methods.isSubscriber().call({ from: signerAddress }).then((resp) => {
+            lblTopacioIsSubscripber.innerHTML = resp;
+
+
+            subscriptionContract.methods.getDaysSubscription().call({ from: signerAddress }).then((resp) => {
+                DaysSubscription = resp;
+                lblDaysSubscription.innerHTML = DaysSubscription;
+            });
+
+        });
+
+
+
+        console.log('* updateBalance')
+    }
+
+    const getAccountBalance = async () => {
+        console.log({ tokenContract })
+        //userTokenBalance = await tokenContract.balanceOf(signerAddress);
+        //Note that userTokenBalance is not a number and it is bigNumber
+
+        const balance = await provider.getBalance(
+            accounts[0],
+            "latest"
+        );
+
+        // web3.eth.getBalance(accounts[0], (err, wei) => {
+        //   let balance2 = web3.utils.fromWei(wei, 'ether');
+        //   console.log({balance2,accounts})
+        // });
+
+        const numericInWei = balance.toString();
+        const testParse = ethers.utils.parseEther("1.0");
+
+        const TopacioBalanceInWei = userTokenBalance.toString();
+        // ethers.utils,
+        // .parseUnits(numericInWei, 1).parseEther()
+
+        lblBNBwei.innerHTML = numericInWei;
+        lblBNBdecimal.innerHTML = ethers.utils.formatEther(numericInWei);
+        lblTopaciodecimal.innerHTML = ethers.utils.formatEther(TopacioBalanceInWei);
+
+        // console.log({
+        // 		balance,
+        // 	  	numericInWei,
+        // 	  	testParse:testParse.toString(),
+        // 	  	formatEther: ethers.utils.formatEther(numericInWei),
+        // 	  	utils:ethers.utils
+        // });
+
+        //  console.log({userTokenBalance});
+        //  console.log('*********getAccountBalance*********')
+    }
+
+    async function sendTransaction(_from, _to, value) {
+        // // window.ethereum
+        try {
+            const transactionHash = await ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    to: _to,
+                    'from': _from,
+                    value,
+                    // And so on...
+                }, ],
+            });
+            // Handle the result
+            console.log(transactionHash);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+
+    async function getAccount() {
+        accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+    }
+
+    async function addTokenToWallet() {
+
+        const tokenSymbol = 'TOPACIO';
+        const tokenDecimals = 18;
+        // const tokenImage = 'https://topaciotrade.github.io/topacio-website/assets/topacio_azul.55a2e2a4.svg';
+        const tokenImage = 'http://localhost/conection_front_smart_contract/topacio_48X48.svg';
+
+        try {
+            // wasAdded is a boolean. Like any RPC method, an error may be thrown.
+            const wasAdded = await ethereum.request({
+                method: 'wallet_watchAsset',
+                params: {
+                    type: 'ERC20', // Initially only supports ERC20, but eventually more!
+                    options: {
+                        address: AddressContractTopacioToken, // The address that the token is at.
+                        symbol: tokenSymbol, // A ticker symbol or shorthand, up to 5 chars.
+                        decimals: tokenDecimals, // The number of decimals in the token
+                        image: tokenImage, // A string url of the token logo
+                    },
+                },
+            });
+
+            if (wasAdded) {
+                console.log('Thanks for your interest!');
+            } else {
+                console.log('Your loss!');
+            }
+        } catch (error) {
+            console.log(error);
+        }
+
+    }
+
+    // REFERENCIA para Transaacion con approve
+    /*
+    	* https://ethereum.org/el/developers/tutorials/transfers-and-approval-of-erc-20-tokens-from-a-solidity-smart-contract/
+
+    	lib dev
+    	https://hardhat.org/hardhat-runner/docs/getting-started
+    */
+    </script>
+    <style>
+    * {
+        margin: 0px;
+        padding: 0px;
+        border: none;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    body {
+        padding: 25px;
+    }
+
+    .balances {
+        background-color: #9dff9569;
+    }
+
+    button {
+
+        padding: 5px 10px;
+        text-transform: uppercase;
+        font-family: sans-serif;
+        font-weight: 600;
+        color: #5b5b5b;
+        cursor: pointer;
+        transition-duration: 0.5s;
+        animation-duration: 0.5s;
+    }
+
+    button:hover {
+        color: #00d0ff;
+        background-color: #1d3f63;
+        text-shadow: 1px 1px 3px #010904;
+    }
+
+    #inputCosto {
+        height: 27px;
+        background-color: aliceblue;
+        text-align: center;
+    }
+
+    hr {
+        margin: 4px 0px;
+    }
+
+    .bg-azul {
+        background-color: #0058938c;
+        color: #fff;
+        text-shadow: 1px 1px 2px black;
+        padding: 5px;
+    }
+
+    button:active {}
+    </style>
+</body>
+
+</html>
