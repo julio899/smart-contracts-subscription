@@ -167,6 +167,47 @@ contract TopacioSubscription {
         emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
     
     }
+
+    function comprarByToken() public {        
+        require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
+        require ( newSubscriptionEnable == true,"No enable for new subscription" );
+        require ( isActiveCustomToken == true,"No enable by token" );
+        
+        require ( token.balanceOf(address(msg.sender)) >= priceOfSubscription,"you need balance in topacio token" );
+            
+        // el approve debe invocarse primero por el from antes de comprar
+        // para firmar la tansaaccion            
+        uint256 allowance = token.allowance(msg.sender, address(this));
+        require(allowance >= priceOfSubscription, "check the token allowance");                  
+        token.transferFrom(msg.sender,address(this), priceOfSubscription);
+         
+        lastSubscription = block.timestamp;
+
+        controlTotalSubscriptors+=1;
+
+       Subscription storage consult = subscriptions[msg.sender];
+        if(!consult.active) {
+            maxNewSubscriptors = maxNewSubscriptors-1;
+            controlNewSubscriptor+=1;
+            subscriptions[msg.sender].nro = controlNewSubscriptor;
+            subscriptions[msg.sender].controldate = block.timestamp;
+            subscriptions[msg.sender].endsubscription = block.timestamp + 31 days;
+            addressSubscriptors.push(msg.sender);
+            emit NewRegisterSubscriptor(msg.sender, priceOfSubscription,block.timestamp, (block.timestamp + 31 days));
+        }else{
+            // si ya esta activo y tiene subscription
+            subscriptions[msg.sender].endsubscription += 31 days;
+        }
+        
+        subscriptions[msg.sender].amountSubscription += priceOfSubscription;
+        subscriptions[msg.sender].active = true; 
+        subscriptions[msg.sender].delegate = msg.sender;
+        subscriptions[msg.sender].tikets+=1;
+        
+        if ( maxNewSubscriptors == 0 ) {
+            newSubscriptionEnable = false;
+        }
+    }
  
     function tokensBalance()external view returns(uint256){
         return token.balanceOf(address(this));
