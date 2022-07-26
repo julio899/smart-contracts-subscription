@@ -111,17 +111,28 @@ contract TopacioSubscription {
 
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
-        require(msg.value == priceOfSubscription, "Incorect amount");
+        
         
         if(isActiveCustomToken==true){
-
+            // ------------------------------------------------- 
             require ( token.balanceOf(address(msg.sender)) >= priceOfSubscription,"you need balance in topacio token" );
+            
+            // el approve debe invocarse primero por el from antes de comprar
+            // para firmar la tansaaccion            
             uint256 allowance = token.allowance(msg.sender, address(this));
-            require(allowance >= priceOfSubscription, "check the token allowance");
-                  
+            require(allowance >= priceOfSubscription, "check the token allowance");                  
             token.transferFrom(msg.sender,address(this), priceOfSubscription);
+            // token.transfer(address(this),priceOfSubscription);
 
-        }else{
+
+            //payable(address(msg.sender)).transfer(priceOfSubscription);
+
+            // some example in fromtend
+            // await token.increaseAllowance(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
+            // await token.approve(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
+        } else {
+
+            require(msg.value == priceOfSubscription, "Incorect amount");
             payable(this).transfer(priceOfSubscription);
         }
 
@@ -161,7 +172,7 @@ contract TopacioSubscription {
         return token.balanceOf(address(this));
     }
 
-    function getTickets() onlySubscriber external view returns (uint){
+    function getTickets() external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
        return consult.tikets;
     }
@@ -211,7 +222,7 @@ contract TopacioSubscription {
 
     function getDaysSubscription()  external view returns (uint){
        Subscription storage consult = subscriptions[msg.sender];
-       require(consult.active,"no has subscription");
+       require(consult.active,"no has subscription");          
        return (consult.endsubscription - block.timestamp) / 1 days;
     }
 
