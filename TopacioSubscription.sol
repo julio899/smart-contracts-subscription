@@ -111,44 +111,23 @@ contract TopacioSubscription {
 
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
+        require(msg.value == priceOfSubscription, "Incorect amount");
         
-        
-        if(isActiveCustomToken==true){
-            // ------------------------------------------------- 
-            require ( token.balanceOf(address(msg.sender)) >= priceOfSubscription,"you need balance in topacio token" );
-            
-            // el approve debe invocarse primero por el from antes de comprar
-            // para firmar la tansaaccion            
-            uint256 allowance = token.allowance(msg.sender, address(this));
-            require(allowance >= priceOfSubscription, "check the token allowance");                  
-            token.transferFrom(msg.sender,address(this), priceOfSubscription);
-            // token.transfer(address(this),priceOfSubscription);
-
-
-            //payable(address(msg.sender)).transfer(priceOfSubscription);
-
-            // some example in fromtend
-            // await token.increaseAllowance(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
-            // await token.approve(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
-        } else {
-
-            require(msg.value == priceOfSubscription, "Incorect amount");
-            payable(this).transfer(priceOfSubscription);
-        }
-
+        payable(this).transfer(priceOfSubscription);
         
         maxNewSubscriptors = maxNewSubscriptors-1;
         lastSubscription = block.timestamp;
-
         controlTotalSubscriptors+=1;
 
        Subscription storage consult = subscriptions[msg.sender];
+
         if(!consult.active){
             controlNewSubscriptor+=1;
             subscriptions[msg.sender].nro = controlNewSubscriptor;
             subscriptions[msg.sender].controldate = block.timestamp;
             subscriptions[msg.sender].endsubscription = block.timestamp + 31 days;
             addressSubscriptors.push(msg.sender);
+            emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
         }else{
             // si ya esta activo y tiene subscription
             subscriptions[msg.sender].endsubscription += 31 days;
@@ -164,7 +143,6 @@ contract TopacioSubscription {
             newSubscriptionEnable = false;
         }
         
-        emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
     
     }
 
