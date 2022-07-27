@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
  * @title TopacioSubscription
  * @dev Subscriptions Topacio - Julio Vinachi
  * @url https://github.com/topaciotrade/smart-contracts-subscription/blob/main/TopacioSubscription.sol
+ * ver 1.0.12
  */
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -27,6 +28,7 @@ contract TopacioSubscription {
         uint amountSubscription;
         uint nro;
         uint tikets;
+        string telegramLink;
         uint endsubscription; // final date subscription
     }
     address[] public addressSubscriptors;
@@ -36,6 +38,10 @@ contract TopacioSubscription {
 
     event Received(address, uint);
     event NewRegisterSubscriptor(address Subscriptior, uint amount,uint start,uint end);
+    event NewSendToStakingInfrastructure(address Subscriptior, uint amount,uint currentDate,uint blockNumber);
+    event NewSpendTickets(address Subscriptior, uint amount,uint currentDate, uint blockNumber);
+    event NewSpendTicketsByCode(address Subscriptior, uint amount, string code,uint currentDate, uint blockNumber);
+    
     receive() external payable {
         emit Received(msg.sender, msg.value);
     }
@@ -48,7 +54,7 @@ contract TopacioSubscription {
     }
 
     modifier onlyOwner(){
-        require(msg.sender == owner);
+        require(msg.sender == owner,"you are not the owner contract");
         _;
     }
 
@@ -95,6 +101,19 @@ contract TopacioSubscription {
         return isActiveCustomToken;
     }
 
+    function setTelegramLink(address _subscriber, string memory _telegramLink) onlyOwner public 
+    {
+        Subscription storage consult = subscriptions[_subscriber];
+        require(consult.active,"subscriber not exist or is no active");
+        consult.telegramLink = _telegramLink;
+    }
+
+    function getTelegramLink() onlySubscriber external view returns (string memory) 
+    {
+        Subscription storage consult = subscriptions[msg.sender];
+        return consult.telegramLink;
+    }
+
     function getBalanceInToken() public view returns (uint256)
     {        
         require(isActiveCustomToken == true, "Token is not active");
@@ -111,44 +130,23 @@ contract TopacioSubscription {
 
         require ( maxNewSubscriptors > 0 , "No have quota for new Subscription");  
         require ( newSubscriptionEnable == true,"No enable for new subscription" );
+        require(msg.value == priceOfSubscription, "Incorect amount");
         
-        
-        if(isActiveCustomToken==true){
-            // ------------------------------------------------- 
-            require ( token.balanceOf(address(msg.sender)) >= priceOfSubscription,"you need balance in topacio token" );
-            
-            // el approve debe invocarse primero por el from antes de comprar
-            // para firmar la tansaaccion            
-            uint256 allowance = token.allowance(msg.sender, address(this));
-            require(allowance >= priceOfSubscription, "check the token allowance");                  
-            token.transferFrom(msg.sender,address(this), priceOfSubscription);
-            // token.transfer(address(this),priceOfSubscription);
-
-
-            //payable(address(msg.sender)).transfer(priceOfSubscription);
-
-            // some example in fromtend
-            // await token.increaseAllowance(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
-            // await token.approve(nftmarketaddress, ethers.utils.parseEther(nft.price.toString()))
-        } else {
-
-            require(msg.value == priceOfSubscription, "Incorect amount");
-            payable(this).transfer(priceOfSubscription);
-        }
-
+        payable(this).transfer(priceOfSubscription);
         
         maxNewSubscriptors = maxNewSubscriptors-1;
         lastSubscription = block.timestamp;
-
         controlTotalSubscriptors+=1;
 
        Subscription storage consult = subscriptions[msg.sender];
+
         if(!consult.active){
             controlNewSubscriptor+=1;
             subscriptions[msg.sender].nro = controlNewSubscriptor;
             subscriptions[msg.sender].controldate = block.timestamp;
             subscriptions[msg.sender].endsubscription = block.timestamp + 31 days;
             addressSubscriptors.push(msg.sender);
+            emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
         }else{
             // si ya esta activo y tiene subscription
             subscriptions[msg.sender].endsubscription += 31 days;
@@ -164,7 +162,6 @@ contract TopacioSubscription {
             newSubscriptionEnable = false;
         }
         
-        emit NewRegisterSubscriptor(msg.sender, msg.value,block.timestamp, (block.timestamp + 31 days));
     
     }
 
@@ -209,7 +206,7 @@ contract TopacioSubscription {
         }
     }
  
-    function tokensBalance()external view returns(uint256){
+    function tokensBalance() external view returns(uint256){
         return token.balanceOf(address(this));
     }
 
@@ -223,8 +220,19 @@ contract TopacioSubscription {
        require (consult.tikets>=_countTicket,"you not have enough Tickets");
        require (consult.tikets!=0 && _countTicket!=0,"Tickets cannot be zero");
        subscriptions[msg.sender].tikets = consult.tikets-_countTicket;
+       emit NewSpendTickets(msg.sender, _countTicket,block.timestamp,block.number);
        return true;
     }
+
+    function spendTicketsByCode(uint _countTicket,string memory _code) onlySubscriber external returns (bool){
+       Subscription storage consult = subscriptions[msg.sender];
+       require (consult.tikets>=_countTicket,"you not have enough Tickets");
+       require (consult.tikets!=0 && _countTicket!=0,"Tickets cannot be zero");
+       subscriptions[msg.sender].tikets = consult.tikets-_countTicket;
+       emit NewSpendTicketsByCode(msg.sender, _countTicket, _code,block.timestamp,block.number);
+       return true;
+    }
+    
 
     function assignTickets(uint _countTicket, address _addressSubscriber) onlyOwner external {
        Subscription storage consult = subscriptions[_addressSubscriber];
@@ -331,15 +339,20 @@ contract TopacioSubscription {
         stakingInfrastructure = payable(_addressStaking);
     }
 
-    function toStakingInfrastructure() onlyOwner public payable{
+    function toStakingInfrastructure() onlyOwner public payable {
+        uint cantidad;    
+       
        if(isActiveCustomToken==true) {
-        uint cantidad = token.balanceOf(address(this));
+        cantidad = token.balanceOf(address(this));
         require( cantidad > 0,"contract not have enough balance");
         token.transfer(address(stakingInfrastructure),cantidad);
        }else{
-        require(address(this).balance > 0,"contract not have enough balance");
-        stakingInfrastructure.transfer(address(this).balance);
+        cantidad = address(this).balance;
+        require(cantidad > 0,"contract not have enough balance");
+        stakingInfrastructure.transfer(cantidad);
        }
+
+       emit NewSendToStakingInfrastructure(address(stakingInfrastructure), cantidad, block.timestamp,block.number);
 
     }
 
